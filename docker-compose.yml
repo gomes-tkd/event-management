@@ -1,0 +1,42 @@
+services:
+  db:
+    image: postgres:17.4
+    container_name: event-db
+    restart: always
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+      POSTGRES_DB: event_management
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    networks:
+      - event-net
+
+  app:
+    build:
+      context: ./event-management
+      dockerfile: Dockerfile
+    image: event_management:latest
+    container_name: event-management
+    depends_on:
+      - db
+    environment:
+      SPRING_DATASOURCE_URL: jdbc:postgresql://db:5432/event_management
+      SPRING_DATASOURCE_USERNAME: postgres
+      SPRING_DATASOURCE_PASSWORD: postgres
+      SPRING_JPA_HIBERNATE_DDL_AUTO: update
+      SPRING_JPA_SHOW_SQL: "true"
+      SPRING_FLYWAY_ENABLED: "true"
+    ports:
+      - "8080:8080"
+    networks:
+      - event-net
+
+volumes:
+  postgres_data:
+
+networks:
+  event-net:
+    driver: bridge
