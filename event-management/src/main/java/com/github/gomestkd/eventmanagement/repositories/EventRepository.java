@@ -7,6 +7,8 @@ import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 
+import java.util.Date;
+
 public interface EventRepository extends JpaRepository<Event, Long> {
     @Query(
             "SELECT e FROM Event e WHERE LOWER(e.name) LIKE LOWER(CONCAT('%', :name, '%'))"
@@ -27,8 +29,8 @@ public interface EventRepository extends JpaRepository<Event, Long> {
         "SELECT e FROM Event e WHERE (e.startTime >= :startTime) AND (e.endTime <= :endTime)"
     )
     Page<Event> findEventsByTimeRange(
-        @Param("startTime") java.time.LocalDateTime startTime,
-        @Param("endTime") java.time.LocalDateTime endTime,
+        @Param("startTime") Date startTime,
+        @Param("endTime") Date endTime,
         Pageable pageable
     );
 }

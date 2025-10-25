@@ -242,8 +242,6 @@ public class ItemService {
             return itemDTO;
         });
 
-        // CORRECTION: Use the assembler directly on the page.
-        // It will automatically generate the correct pagination links (`first`, `self`, `next`, `last`).
         return assembler.toModel(itemDTOPage);
     }
 

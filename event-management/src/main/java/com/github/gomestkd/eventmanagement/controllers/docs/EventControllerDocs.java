@@ -1,7 +1,6 @@
 package com.github.gomestkd.eventmanagement.controllers.docs;
 
 import com.github.gomestkd.eventmanagement.dto.EventDTO;
-import com.github.gomestkd.eventmanagement.dto.GuestDTO;
 import com.github.gomestkd.eventmanagement.file.MediaTypes;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.Parameter;
@@ -20,6 +19,7 @@ import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.multipart.MultipartFile;
 
+import java.util.Date;
 import java.util.Set;
 
 public interface EventControllerDocs {
@@ -76,7 +76,7 @@ public interface EventControllerDocs {
                     description = "Sorting criteria in the format: property (asc|desc). Default sort order is ascending. Multiple sort criteria are supported.",
                     example = "asc"
             )
-            @RequestParam(value = "sort", defaultValue = "asc") String sort
+            @RequestParam(value = "sort", defaultValue = "asc") String direction
     );
 
     @Operation(
@@ -112,7 +112,7 @@ public interface EventControllerDocs {
                     ),
                     @ApiResponse(
                             responseCode = "404",
-                            description = "Not Found - Guest with the specified ID does not exist.",
+                            description = "Not Found - Event with the specified ID does not exist.",
                             content = { @Content }
                     ),
                     @ApiResponse(
@@ -201,7 +201,7 @@ public interface EventControllerDocs {
                             content = {
                                     @Content(
                                             mediaType = MediaType.APPLICATION_JSON_VALUE,
-                                            array = @ArraySchema(schema = @Schema(implementation = GuestDTO.class))
+                                            array = @ArraySchema(schema = @Schema(implementation = EventDTO.class))
                                     )
                             }
                     ),
@@ -317,36 +317,25 @@ public interface EventControllerDocs {
             @RequestParam("direction") String direction
     );
 
-
-
-
-
-    //TODO - The rest
-
-
-
-    // =======================================================
-    // 🔹 FIND BY PHONE
-    // =======================================================
     @Operation(
-            summary = "Find Guests by Phone - Paginated",
-            description = "Find Guests by their phone with pagination support.",
-            tags = { "Guests" },
-            operationId = "findGuestsByPhone",
+            summary = "Find Events by Time - Paginated",
+            description = "Find Events by their time with pagination support.",
+            tags = { "Events" },
+            operationId = "findEventsByTime",
             responses = {
                     @ApiResponse(
                             responseCode = "200",
-                            description = "Successful operation - Returns a paginated list of Guests matching the phone",
+                            description = "Successful operation - Returns a paginated list of Events matching the time",
                             content = {
                                     @Content(
                                             mediaType = MediaType.APPLICATION_JSON_VALUE,
-                                            array = @ArraySchema(schema = @Schema(implementation = GuestDTO.class))
+                                            array = @ArraySchema(schema = @Schema(implementation = EventDTO.class))
                                     )
                             }
                     ),
                     @ApiResponse(
                             responseCode = "204",
-                            description = "No Content - No Guests found matching the phone",
+                            description = "No Content - No Events found matching the time",
                             content = @Content
                     ),
                     @ApiResponse(
@@ -376,32 +365,28 @@ public interface EventControllerDocs {
                     )
             }
     )
-    ResponseEntity<PagedModel<EntityModel<GuestDTO>>> findGuestByPhone(
-            @Parameter(description = "Phone of the guest to be retrieved", example = "1234567890")
-            @PathVariable("phone") String phone,
-
+    ResponseEntity<PagedModel<EntityModel<EventDTO>>> findEventsByTime(
+            @Parameter(description = "Start time of the event to be retrieved", example = "15/05/2025")
+            @PathVariable("start-time") Date startTime,
+            @Parameter(description = "Start time of the event to be retrieved", example = "15/05/2025")
+            @PathVariable("end-time") Date endTime,
             @Parameter(description = "Page number (0..N)", example = "0")
             @RequestParam(value = "page", defaultValue = "0") Integer page,
-
             @Parameter(description = "Number of records per page", example = "15")
             @RequestParam(value = "size", defaultValue = "15") Integer size,
-
             @Parameter(description = "Sorting criteria: asc or desc", example = "asc")
             @RequestParam(value = "direction", defaultValue = "asc") String direction
     );
 
-    // =======================================================
-    // 🔹 EXPORT PAGE
-    // =======================================================
     @Operation(
-            summary = "Exports Guests in PDF, CSV, XLSX or XML format - Paginated",
-            description = "Exports all Guests in a PDF, CSV, XLSX or XML file with pagination support.",
-            tags = { "Guests" },
-            operationId = "exportPageGuests",
+            summary = "Exports Events in PDF, CSV, XLSX or XML format - Paginated",
+            description = "Exports all Events in a PDF, CSV, XLSX or XML file with pagination support.",
+            tags = { "Events" },
+            operationId = "exportPageEvents",
             responses = {
                     @ApiResponse(
                             responseCode = "200",
-                            description = "Successful - Returns the file that contains the successfully exported guest data",
+                            description = "Successful - Returns the file that contains the successfully exported Event data",
                             content = {
                                     @Content(mediaType = MediaTypes.APPLICATION_PDF_VALUE, schema = @Schema(type = "string", format = "binary")),
                                     @Content(mediaType = MediaTypes.APPLICATION_CSV_VALUE, schema = @Schema(type = "string", format = "binary")),
@@ -411,7 +396,7 @@ public interface EventControllerDocs {
                     ),
                     @ApiResponse(
                             responseCode = "204",
-                            description = "No Content - No Guests found to export",
+                            description = "No Content - No Events found to export",
                             content = @Content
                     ),
                     @ApiResponse(
@@ -444,10 +429,8 @@ public interface EventControllerDocs {
     ResponseEntity<Resource> exportPage(
             @Parameter(description = "Page number (0..N)", example = "0")
             @RequestParam(value = "page", defaultValue = "0") Integer page,
-
             @Parameter(description = "Number of records per page", example = "15")
             @RequestParam(value = "size", defaultValue = "15") Integer size,
-
             @Parameter(description = "Sorting criteria: asc or desc", example = "asc")
             @RequestParam(value = "direction", defaultValue = "asc") String direction,
 
@@ -455,17 +438,17 @@ public interface EventControllerDocs {
     );
 
     // =======================================================
-    // 🔹 EXPORT GUEST
+    // 🔹 EXPORT Event
     // =======================================================
     @Operation(
-            summary = "Exports Guest in PDF, CSV, XLSX or XML format - Paginated",
-            description = "Exports one specific Guest in a PDF, CSV, XLSX or XML file with pagination support.",
-            tags = { "Guests" },
-            operationId = "exportGuest",
+            summary = "Exports Event in PDF, CSV, XLSX or XML format - Paginated",
+            description = "Exports one specific Event in a PDF, CSV, XLSX or XML file with pagination support.",
+            tags = { "Events" },
+            operationId = "exportEvent",
             responses = {
                     @ApiResponse(
                             responseCode = "200",
-                            description = "Successful - Returns the file that contains the successfully exported guest data",
+                            description = "Successful - Returns the file that contains the successfully exported Event data",
                             content = {
                                     @Content(mediaType = MediaTypes.APPLICATION_PDF_VALUE, schema = @Schema(type = "string", format = "binary")),
                                     @Content(mediaType = MediaTypes.APPLICATION_CSV_VALUE, schema = @Schema(type = "string", format = "binary")),
@@ -475,7 +458,7 @@ public interface EventControllerDocs {
                     ),
                     @ApiResponse(
                             responseCode = "204",
-                            description = "No Content - No Guests found to export",
+                            description = "No Content - No Events found to export",
                             content = @Content
                     ),
                     @ApiResponse(
@@ -505,7 +488,7 @@ public interface EventControllerDocs {
                     )
             }
     )
-    ResponseEntity<Resource> exportGuest(
+    ResponseEntity<Resource> exportEvent(
             @Parameter(description = "ID of the item", example = "1")
             @PathVariable("id") Long id,
             HttpServletRequest request
@@ -513,18 +496,18 @@ public interface EventControllerDocs {
 
     //TODO: massCreation
     @Operation(
-            summary = "Mass Creation of Guests via File Upload",
-            description = "Creates multiple Guests by uploading a CSV or XLSX file containing their data.",
-            tags = { "Guests" },
-            operationId = "massCreationGuests",
+            summary = "Mass Creation of Events via File Upload",
+            description = "Creates multiple Events by uploading a CSV or XLSX file containing their data.",
+            tags = { "Events" },
+            operationId = "massCreationEvents",
             responses = {
                     @ApiResponse(
                             responseCode = "200",
-                            description = "Successful operation - Returns the set of created Guests",
+                            description = "Successful operation - Returns the set of created Events",
                             content = {
                                     @Content(
                                             mediaType = MediaType.APPLICATION_JSON_VALUE,
-                                            array = @ArraySchema(schema = @Schema(implementation = GuestDTO.class))
+                                            array = @ArraySchema(schema = @Schema(implementation = EventDTO.class))
                                     )
                             }
                     ),
@@ -550,7 +533,7 @@ public interface EventControllerDocs {
                     )
             }
     )
-    Set<GuestDTO> massCreation(
+    Set<EventDTO> massCreation(
             @Parameter(description = "CSV or XLSX file containing people data", required = true)
             MultipartFile file
     );
@@ -558,18 +541,18 @@ public interface EventControllerDocs {
     //TODO: create
 
     @Operation(
-            summary = "Create a new Guest",
-            description = "Creates a new Guest with the provided data.",
-            tags = { "Guests" },
-            operationId = "createGuest",
+            summary = "Create a new Event",
+            description = "Creates a new Event with the provided data.",
+            tags = { "Events" },
+            operationId = "createEvent",
             responses = {
                     @ApiResponse(
                             responseCode = "201",
-                            description = "Successful operation - Returns the created Guest",
+                            description = "Successful operation - Returns the created Event",
                             content = {
                                     @Content(
                                             mediaType = MediaType.APPLICATION_JSON_VALUE,
-                                            schema = @Schema(implementation = GuestDTO.class)
+                                            schema = @Schema(implementation = EventDTO.class)
                                     )
                             }
                     ),
@@ -595,24 +578,24 @@ public interface EventControllerDocs {
                     )
             }
     )
-    GuestDTO create(
-            @Parameter(description = "Guest data to be created", required = true)
-            @RequestBody GuestDTO guestDTO
+    EventDTO create(
+            @Parameter(description = "Event data to be created", required = true)
+            @RequestBody EventDTO EventDTO
     );
     //TODO: update
     @Operation(
-            summary = "Update an existing Guest",
-            description = "Updates an existing Guest with the provided data.",
-            tags = { "Guests" },
-            operationId = "updateGuest",
+            summary = "Update an existing Event",
+            description = "Updates an existing Event with the provided data.",
+            tags = { "Events" },
+            operationId = "updateEvent",
             responses = {
                     @ApiResponse(
                             responseCode = "200",
-                            description = "Successful operation - Returns the updated Guest",
+                            description = "Successful operation - Returns the updated Event",
                             content = {
                                     @Content(
                                             mediaType = MediaType.APPLICATION_JSON_VALUE,
-                                            schema = @Schema(implementation = GuestDTO.class)
+                                            schema = @Schema(implementation = EventDTO.class)
                                     )
                             }
                     ),
@@ -638,20 +621,20 @@ public interface EventControllerDocs {
                     )
             }
     )
-    GuestDTO update(
-            @Parameter(description = "Guest data to be updated", required = true)
-            @RequestBody GuestDTO guestDTO
+    EventDTO update(
+            @Parameter(description = "Event data to be updated", required = true)
+            @RequestBody EventDTO EventDTO
     );
 
     @Operation(
-            summary = "Delete a Guest by ID",
-            description = "Deletes a Guest identified by its unique ID.",
-            tags = { "Guests" },
-            operationId = "deleteGuest",
+            summary = "Delete a Event by ID",
+            description = "Deletes a Event identified by its unique ID.",
+            tags = { "Events" },
+            operationId = "deleteEvent",
             responses = {
                     @ApiResponse(
                             responseCode = "204",
-                            description = "Successful operation - Guest deleted successfully",
+                            description = "Successful operation - Event deleted successfully",
                             content = @Content
                     ),
                     @ApiResponse(
@@ -671,7 +654,7 @@ public interface EventControllerDocs {
                     ),
                     @ApiResponse(
                             responseCode = "404",
-                            description = "Not Found - Guest with the specified ID does not exist",
+                            description = "Not Found - Event with the specified ID does not exist",
                             content = @Content
                     ),
                     @ApiResponse(
@@ -682,7 +665,7 @@ public interface EventControllerDocs {
             }
     )
     ResponseEntity<?> delete(
-            @Parameter(description = "ID of the guest to be deleted", example = "1")
+            @Parameter(description = "ID of the Event to be deleted", example = "1")
             @PathVariable("id") Long id
     );
 }

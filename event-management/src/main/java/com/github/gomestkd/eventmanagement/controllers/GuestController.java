@@ -8,6 +8,8 @@ import com.github.gomestkd.eventmanagement.services.GuestService;
 import io.swagger.v3.oas.annotations.Parameter;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.servlet.http.HttpServletRequest;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.core.io.Resource;
 import org.springframework.data.domain.PageRequest;
@@ -26,6 +28,8 @@ import java.util.*;
 @RequestMapping("/api/v1/guests")
 public class GuestController implements GuestControllerDoc {
 
+    private static final Logger log = LoggerFactory.getLogger(GuestController.class);
+
     private final GuestService guestService;
 
     @Autowired
@@ -40,25 +44,31 @@ public class GuestController implements GuestControllerDoc {
             @RequestParam(value = "size", defaultValue = "15") Integer size,
             @RequestParam(value = "direction", defaultValue = "asc") String direction
     ) {
+        log.info("📥 Request received: GET /guests?page={}&size={}&direction={}", page, size, direction);
         validatePaginationParams(page, size, direction);
 
         Pageable pageable = buildPageable(page, size, direction, "name");
         PagedModel<EntityModel<GuestDTO>> guests = guestService.findAll(pageable);
 
         if (guests == null || guests.getContent().isEmpty()) {
+            log.warn("No guests found on page {}", page);
             return ResponseEntity.noContent().build();
         }
 
+        log.info("✅ Returning {} guests.", guests.getContent().size());
         return ResponseEntity.ok(guests);
     }
 
 
     @GetMapping(value = "/{id}", produces = MediaType.APPLICATION_JSON_VALUE)
     @Override
-    public GuestDTO findById(@PathVariable Long id) {
+    public GuestDTO findById(@PathVariable("id") Long id) {
+        log.info("📥 Request received: GET /guests/{}", id);
         validateIdParam(id);
 
-        return guestService.findById(id);
+        GuestDTO guest = guestService.findById(id);
+        log.debug("🎯 Guest found: {}", guest);
+        return guest;
     }
 
 
@@ -70,24 +80,26 @@ public class GuestController implements GuestControllerDoc {
             @RequestParam(value = "size", defaultValue = "15") Integer size,
             @RequestParam(value = "direction", defaultValue = "asc") String direction
     ) {
+        log.info("📥 Request received: GET /guests/findByName/{}?page={}&size={}&direction={}", name, page, size, direction);
         validatePaginationParams(page, size, direction);
+
         if (name == null || name.isBlank()) {
-            throw new IllegalArgumentException("O parâmetro 'name' não pode estar vazio.");
+            log.warn("Invalid parameter 'name': '{}'", name);
+            throw new IllegalArgumentException("The 'name' parameter cannot be empty.");
         }
 
         Pageable pageable = buildPageable(page, size, direction, "name");
         PagedModel<EntityModel<GuestDTO>> guests = guestService.findByName(name, pageable);
 
         if (guests == null || guests.getContent().isEmpty()) {
+            log.warn("No guests found with name '{}'.", name);
             return ResponseEntity.noContent().build();
         }
 
+        log.info("✅ Returning {} guests with name '{}'.", guests.getContent().size(), name);
         return ResponseEntity.ok(guests);
     }
 
-    // =======================================================
-    // 🔹 FIND BY EMAIL
-    // =======================================================
     @GetMapping(value = "/findByEmail/{email}", produces = MediaType.APPLICATION_JSON_VALUE)
     @Override
     public ResponseEntity<PagedModel<EntityModel<GuestDTO>>> findGuestByEmail(
@@ -96,24 +108,26 @@ public class GuestController implements GuestControllerDoc {
             @RequestParam(value = "size", defaultValue = "15") Integer size,
             @RequestParam(value = "direction", defaultValue = "asc") String direction
     ) {
+        log.info("📥 Request received: GET /guests/findByEmail/{}", email);
         validatePaginationParams(page, size, direction);
+
         if (email == null || email.isBlank()) {
-            throw new IllegalArgumentException("O parâmetro 'email' não pode estar vazio.");
+            log.warn("Invalid parameter 'email': '{}'", email);
+            throw new IllegalArgumentException("The 'email' parameter cannot be empty.");
         }
 
         Pageable pageable = buildPageable(page, size, direction, "email");
         PagedModel<EntityModel<GuestDTO>> guests = guestService.findGuestByEmail(email, pageable);
 
         if (guests == null || guests.getContent().isEmpty()) {
+            log.warn("No guests found with email '{}'.", email);
             return ResponseEntity.noContent().build();
         }
 
+        log.info("✅ Returning {} guests with email '{}'.", guests.getContent().size(), email);
         return ResponseEntity.ok(guests);
     }
 
-    // =======================================================
-    // 🔹 FIND BY PHONE
-    // =======================================================
     @GetMapping(value = "/findByPhone/{phone}", produces = MediaType.APPLICATION_JSON_VALUE)
     @Override
     public ResponseEntity<PagedModel<EntityModel<GuestDTO>>> findGuestByPhone(
@@ -122,33 +136,45 @@ public class GuestController implements GuestControllerDoc {
             @RequestParam(value = "size", defaultValue = "15") Integer size,
             @RequestParam(value = "direction", defaultValue = "asc") String direction
     ) {
+        log.info("📥 Request received: GET /guests/findByPhone/{}", phone);
         validatePaginationParams(page, size, direction);
+
         if (phone == null || phone.isBlank()) {
-            throw new IllegalArgumentException("O parâmetro 'phone' não pode estar vazio.");
+            log.warn("Invalid parameter 'phone': '{}'", phone);
+            throw new IllegalArgumentException("The 'phone' parameter cannot be empty.");
         }
 
         Pageable pageable = buildPageable(page, size, direction, "phone");
         PagedModel<EntityModel<GuestDTO>> guests = guestService.findGuestByPhone(phone, pageable);
 
         if (guests == null || guests.getContent().isEmpty()) {
+            log.warn("No guests found with phone '{}'.", phone);
             return ResponseEntity.noContent().build();
         }
 
+        log.info("✅ Returning {} guests with phone '{}'.", guests.getContent().size(), phone);
         return ResponseEntity.ok(guests);
     }
 
-    // =======================================================
-    // 🔹 EXPORT PAGE (Com validações e suporte a múltiplos tipos)
-    // =======================================================
-    @GetMapping(
-            value = "/export",
-            produces = {
-                    MediaTypes.APPLICATION_CSV_VALUE,
-                    MediaTypes.APPLICATION_PDF_VALUE,
-                    MediaTypes.APPLICATION_XLSX_VALUE,
-                    MediaTypes.APPLICATION_XML_VALUE
-            }
-    )
+    @PostMapping(value = "/massCreation", produces = { MediaType.APPLICATION_JSON_VALUE })
+    @Override
+    public Set<GuestDTO> massCreation(@RequestParam("file") MultipartFile file) {
+        log.info("📤 Request received: POST /guests/massCreation");
+        if (file == null || file.isEmpty()) {
+            log.warn("Uploaded file is empty or null.");
+            throw new IllegalArgumentException("The input file cannot be empty.");
+        }
+
+        Set<GuestDTO> createdGuests = guestService.massCreation(file);
+        log.info("✅ Successfully imported {} guests from file '{}'.", createdGuests.size(), file.getOriginalFilename());
+        return createdGuests;
+    }
+
+    @GetMapping(value = "/export", produces = {
+            MediaTypes.APPLICATION_CSV_VALUE,
+            MediaTypes.APPLICATION_PDF_VALUE,
+            MediaTypes.APPLICATION_XLSX_VALUE,
+    })
     @Override
     public ResponseEntity<Resource> exportPage(
             @RequestParam(value = "page", defaultValue = "0") Integer page,
@@ -156,6 +182,7 @@ public class GuestController implements GuestControllerDoc {
             @RequestParam(value = "direction", defaultValue = "asc") String direction,
             HttpServletRequest request
     ) {
+        log.info("📤 Request received: GET /guests/export?page={}&size={}&direction={}", page, size, direction);
         validatePaginationParams(page, size, direction);
 
         final Map<String, String> extensionMap = Map.of(
@@ -169,49 +196,45 @@ public class GuestController implements GuestControllerDoc {
         String acceptHeader = Optional.ofNullable(request.getHeader(HttpHeaders.ACCEPT))
                 .orElse(MediaTypes.APPLICATION_CSV_VALUE);
 
-        // trata múltiplos valores no Accept Header
         String selectedMediaType = Arrays.stream(acceptHeader.split(","))
                 .map(String::trim)
                 .filter(extensionMap::containsKey)
                 .findFirst()
                 .orElse(MediaTypes.APPLICATION_CSV_VALUE);
 
-        Resource file = null;
         try {
-            file = guestService.exportPage(pageable, selectedMediaType);
+            Resource file = guestService.exportPage(pageable, selectedMediaType);
+
+            if (file == null || !file.exists()) {
+                log.warn("No export file generated for type '{}'.", selectedMediaType);
+                return ResponseEntity.noContent().build();
+            }
+
+            String filename = "guests_exported" + extensionMap.get(selectedMediaType);
+            log.info("✅ Export generated successfully as '{}'.", filename);
+
+            return ResponseEntity.ok()
+                    .contentType(MediaType.parseMediaType(selectedMediaType))
+                    .header(HttpHeaders.CONTENT_DISPOSITION, "attachment; filename=\"" + filename + "\"")
+                    .body(file);
+
         } catch (Exception e) {
-            throw new RuntimeException("Error exporting datas: " + e.getMessage(), e);
+            log.error("❌ Error exporting page: {}", e.getMessage(), e);
+            throw new RuntimeException("Error exporting data: " + e.getMessage(), e);
         }
-
-        if (file == null || !file.exists()) {
-            return ResponseEntity.noContent().build();
-        }
-
-        String filename = "guests_exported" + extensionMap.get(selectedMediaType);
-
-        return ResponseEntity.ok()
-                .contentType(MediaType.parseMediaType(selectedMediaType))
-                .header(HttpHeaders.CONTENT_DISPOSITION, "attachment; filename=\"" + filename + "\"")
-                .body(file);
     }
 
-    // =======================================================
-    // 🔹 EXPORT GUEST (Com validações e suporte a múltiplos tipos)
-    // =======================================================
-    @GetMapping(
-            value = { "/exportGuest/{id}" },
-            produces = {
-                    MediaTypes.APPLICATION_XLSX_VALUE,
-                    MediaTypes.APPLICATION_CSV_VALUE,
-                    MediaTypes.APPLICATION_PDF_VALUE
-            }
-    )
+    @GetMapping(value = "/exportGuest/{id}", produces = {
+            MediaTypes.APPLICATION_XLSX_VALUE,
+            MediaTypes.APPLICATION_CSV_VALUE,
+            MediaTypes.APPLICATION_PDF_VALUE
+    })
     @Override
     public ResponseEntity<Resource> exportGuest(
-            @Parameter(description = "ID of the item", example = "1")
-            @PathVariable("id") Long id,
+            @Parameter(description = "Guest ID", example = "1") @PathVariable("id") Long id,
             HttpServletRequest request
     ) {
+        log.info("📤 Request received: GET /guests/exportGuest/{}", id);
         validateIdParam(id);
 
         final Map<String, String> extensionMap = Map.of(
@@ -224,132 +247,104 @@ public class GuestController implements GuestControllerDoc {
                 .orElse(MediaTypes.APPLICATION_CSV_VALUE);
 
         String selectedMediaType = Arrays.stream(acceptHeader.split(","))
-            .map(String::trim)
-            .filter(extensionMap::containsKey)
-            .findFirst()
-            .orElse(MediaTypes.APPLICATION_CSV_VALUE);
-
-        Resource file = null;
+                .map(String::trim)
+                .filter(extensionMap::containsKey)
+                .findFirst()
+                .orElse(MediaTypes.APPLICATION_CSV_VALUE);
 
         try {
-            file = guestService.exportGuest(id, selectedMediaType);
-        } catch (Exception e) {
-            throw new RuntimeException("Error exporting guest: " + e.getMessage(), e);
-
-        }
-
-        if (file == null || !file.exists()) {
-            return ResponseEntity.noContent().build();
-        }
-
-        String filename = "guest_" + id + extensionMap.get(selectedMediaType);
-
-        return ResponseEntity
-            .ok()
-            .contentType(MediaType.parseMediaType(acceptHeader))
-            .header(
-                HttpHeaders.CONTENT_DISPOSITION,
-                "attachment; filename=\"" + filename + "\""
-            ).body(file);
-    }
-
-    // =======================================================
-    // 🔹 MASS CREATION (Importa uma lista de Guests a partir de um arquivo)
-    // =======================================================
-    @PostMapping(
-            value = "/massCreation",
-            produces = {
-                    MediaType.APPLICATION_JSON_VALUE,
-                    MediaType.APPLICATION_XML_VALUE,
-                    MediaType.APPLICATION_YAML_VALUE
+            Resource file = guestService.exportGuest(id, selectedMediaType);
+            if (file == null || !file.exists()) {
+                log.warn("No export file generated for guest id={} with type '{}'.", id, selectedMediaType);
+                return ResponseEntity.noContent().build();
             }
-    )
-    @Override
-    public Set<GuestDTO> massCreation(@RequestParam("file") MultipartFile file) {
-        if (file == null || file.isEmpty()) {
-            throw new IllegalArgumentException("O arquivo de entrada não pode estar vazio.");
-        }
 
-        return guestService.massCreation(file);
+            String filename = "guest_" + id + extensionMap.get(selectedMediaType);
+            log.info("✅ Guest export generated successfully: {}", filename);
+
+            return ResponseEntity.ok()
+                    .contentType(MediaType.parseMediaType(selectedMediaType))
+                    .header(HttpHeaders.CONTENT_DISPOSITION, "attachment; filename=\"" + filename + "\"")
+                    .body(file);
+
+        } catch (Exception e) {
+            log.error("❌ Error exporting guest id={}: {}", id, e.getMessage(), e);
+            throw new RuntimeException("Error exporting guest: " + e.getMessage(), e);
+        }
     }
 
-    // =======================================================
-    // 🔹 CREATE A GUEST (Com validação do corpo da requisição)
-    // =======================================================
-
-    @PostMapping(
-            value = "/create",
-            produces = { MediaType.APPLICATION_JSON_VALUE },
-            consumes = { MediaType.APPLICATION_JSON_VALUE }
-    )
+    @PostMapping(value = "/create", produces = MediaType.APPLICATION_JSON_VALUE, consumes = MediaType.APPLICATION_JSON_VALUE)
     @Override
     public GuestDTO create(@RequestBody GuestDTO guestDTO) {
+        log.info("📤 Request received: POST /guests/create");
+        log.debug("Payload: {}", guestDTO);
         validateGuestDTO(guestDTO);
-
-        return guestService.create(guestDTO);
+        GuestDTO created = guestService.create(guestDTO);
+        log.info("✅ Guest created successfully: id={}", created.getId());
+        return created;
     }
 
-    // =======================================================
-    // 🔹 UPDATING A GUEST (Com validação do corpo da requisição)
-    // =======================================================
-    @PutMapping(
-            value = "/updateGuest",
-            produces = { MediaType.APPLICATION_JSON_VALUE },
-            consumes = { MediaType.APPLICATION_JSON_VALUE }
-    )
+    @PutMapping(value = "/updateGuest", produces = MediaType.APPLICATION_JSON_VALUE, consumes = MediaType.APPLICATION_JSON_VALUE)
     @Override
     public GuestDTO update(@RequestBody GuestDTO guestDTO) {
+        log.info("📤 Request received: PUT /guests/updateGuest");
+        log.debug("Payload: {}", guestDTO);
         validateIdParam(guestDTO.getId());
         validateGuestDTO(guestDTO);
-
-        return guestService.update(guestDTO);
+        GuestDTO updated = guestService.update(guestDTO);
+        log.info("✅ Guest updated successfully: id={}", updated.getId());
+        return updated;
     }
 
-    // =======================================================
-    // 🔹 UPDATING A GUEST (Com validação do corpo da requisição)
-    // =======================================================
     @DeleteMapping(value = "/delete/{id}")
     @Override
     public ResponseEntity<?> delete(@PathVariable("id") Long id) {
+        log.info("🗑️ Request received: DELETE /guests/delete/{}", id);
         validateIdParam(id);
-
         guestService.delete(id);
-
+        log.info("✅ Guest deleted successfully: id={}", id);
         return ResponseEntity.ok().build();
     }
 
-
     private void validateGuestDTO(GuestDTO guestDTO) {
         if (guestDTO == null) {
-            throw new IllegalArgumentException("O corpo da requisição não pode ser nulo.");
+            log.warn("GuestDTO is null.");
+            throw new IllegalArgumentException("Request body cannot be null.");
         }
         if (guestDTO.getName() == null || guestDTO.getName().isBlank()) {
-            throw new IllegalArgumentException("O nome do convidado é obrigatório.");
+            log.warn("Guest name is missing.");
+            throw new IllegalArgumentException("Guest name is required.");
         }
         if (guestDTO.getEmail() == null || guestDTO.getEmail().isBlank()) {
-            throw new IllegalArgumentException("O email do convidado é obrigatório.");
+            log.warn("Guest email is missing.");
+            throw new IllegalArgumentException("Guest email is required.");
         }
         if (guestDTO.getPhone() == null || guestDTO.getPhone().isBlank()) {
-            throw new IllegalArgumentException("O telefone do convidado é obrigatório.");
+            log.warn("Guest phone is missing.");
+            throw new IllegalArgumentException("Guest phone is required.");
         }
     }
 
     private void validateIdParam(Long id) {
         if (id == null || id <= 0) {
+            log.error("Invalid ID received: {}", id);
             throw new ResourceNotFoundException("Guest with id " + id + " not found");
         }
     }
 
     private void validatePaginationParams(Integer page, Integer size, String direction) {
         if (page == null || page < 0) {
-            throw new IllegalArgumentException("O parâmetro 'page' deve ser >= 0.");
+            log.warn("Invalid 'page' param: {}", page);
+            throw new IllegalArgumentException("The 'page' parameter must be >= 0.");
         }
         if (size == null || size <= 0 || size > 500) {
-            throw new IllegalArgumentException("O parâmetro 'size' deve estar entre 1 e 500.");
+            log.warn("Invalid 'size' param: {}", size);
+            throw new IllegalArgumentException("The 'size' parameter must be between 1 and 500.");
         }
         if (direction == null ||
                 (!direction.equalsIgnoreCase("asc") && !direction.equalsIgnoreCase("desc"))) {
-            throw new IllegalArgumentException("O parâmetro 'direction' deve ser 'asc' ou 'desc'.");
+            log.warn("Invalid 'direction' param: {}", direction);
+            throw new IllegalArgumentException("The 'direction' parameter must be 'asc' or 'desc'.");
         }
     }
 
@@ -357,6 +352,7 @@ public class GuestController implements GuestControllerDoc {
         Sort.Direction sort = "desc".equalsIgnoreCase(direction)
                 ? Sort.Direction.DESC
                 : Sort.Direction.ASC;
+        log.debug("Building pageable: page={}, size={}, sortBy={}, direction={}", page, size, sortBy, direction);
         return PageRequest.of(page, size, Sort.by(sort, sortBy));
     }
 }
